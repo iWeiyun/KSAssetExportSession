@@ -486,17 +486,17 @@ extension AVAssetWriterInput {
 extension AVMutableMetadataItem {
     fileprivate convenience init(assetIdentifier: String) {
         self.init()
-        key = "com.apple.quicktime.content.identifier" as (NSCopying & NSObjectProtocol)?
+        key = "com.apple.quicktime.content.identifier" as NSCopying & NSObjectProtocol
         keySpace = AVMetadataKeySpace(rawValue: "mdta")
-        value = assetIdentifier as (NSCopying & NSObjectProtocol)?
+        value = assetIdentifier as NSCopying & NSObjectProtocol
         dataType = "com.apple.metadata.datatype.UTF-8"
     }
 
     fileprivate static func makeStillImageTime() -> AVMutableMetadataItem {
         let item = AVMutableMetadataItem()
-        item.key = "com.apple.quicktime.still-image-time" as (NSCopying & NSObjectProtocol)?
+        item.key = "com.apple.quicktime.still-image-time" as NSCopying & NSObjectProtocol
         item.keySpace = AVMetadataKeySpace(rawValue: "mdta")
-        item.value = -1 as (NSCopying & NSObjectProtocol)?
+        item.value = -1 as NSCopying & NSObjectProtocol
         item.dataType = "com.apple.metadata.datatype.int8"
         return item
     }
