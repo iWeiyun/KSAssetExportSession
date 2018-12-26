@@ -148,15 +148,6 @@ extension KSAssetExportSession {
             duration = CMTimeGetSeconds(asset.duration)
         }
 
-        if videoOutputConfiguration?.keys.contains(AVVideoCodecKey) == false {
-            print("KSAssetExportSession, warning a video output configuration codec wasn't specified")
-            if #available(iOS 11.0, *) {
-                videoOutputConfiguration?[AVVideoCodecKey] = AVVideoCodecType.h264
-            } else {
-                videoOutputConfiguration?[AVVideoCodecKey] = AVVideoCodecH264
-            }
-        }
-
         // video
         if reader.canAdd(videoOutput) {
             reader.add(videoOutput)
@@ -167,16 +158,7 @@ extension KSAssetExportSession {
             if writer.canAdd(videoInput) {
                 writer.add(videoInput)
                 if renderHandler != nil {
-                    var pixelBufferAttrib: [String: Any] = [
-                        kCVPixelBufferPixelFormatTypeKey as String: NSNumber(integerLiteral: Int(kCVPixelFormatType_32RGBA)),
-                        "IOSurfaceOpenGLESTextureCompatibility": NSNumber(booleanLiteral: true),
-                        "IOSurfaceOpenGLESFBOCompatibility": NSNumber(booleanLiteral: true),
-                    ]
-                    if let videoOutput = videoOutput as? AVAssetReaderVideoCompositionOutput, let videoComposition = videoOutput.videoComposition {
-                        pixelBufferAttrib[kCVPixelBufferWidthKey as String] = NSNumber(integerLiteral: Int(videoComposition.renderSize.width))
-                        pixelBufferAttrib[kCVPixelBufferHeightKey as String] = NSNumber(integerLiteral: Int(videoComposition.renderSize.height))
-                    }
-                    pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: videoInput, sourcePixelBufferAttributes: pixelBufferAttrib)
+                    pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: videoInput, output: videoOutput)
                 }
             }
         } else {
@@ -284,18 +266,18 @@ extension KSAssetExportSession {
                     error = true
                 }
 
-                if handled == false && output.mediaType == .video {
+                if !handled && output.mediaType == .video {
                     // determine progress
                     let lastSamplePresentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer) - timeRange.start
                     let progress = duration == 0 ? 1 : Float(lastSamplePresentationTime.seconds / duration)
                     updateProgress(progress: progress)
                     // prepare progress frames
-                    if let renderHandler = renderHandler, let pixelBufferAdaptor = self.pixelBufferAdaptor, let pixelBufferPool = pixelBufferAdaptor.pixelBufferPool, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+                    if let renderHandler = renderHandler, let pixelBufferAdaptor = pixelBufferAdaptor, let pixelBufferPool = pixelBufferAdaptor.pixelBufferPool, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
                         var toRenderBuffer: CVPixelBuffer?
                         let result = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pixelBufferPool, &toRenderBuffer)
                         if result == kCVReturnSuccess, let toBuffer = toRenderBuffer {
                             renderHandler(pixelBuffer, lastSamplePresentationTime, toBuffer)
-                            if pixelBufferAdaptor.append(toBuffer, withPresentationTime: lastSamplePresentationTime) == false {
+                            if !pixelBufferAdaptor.append(toBuffer, withPresentationTime: lastSamplePresentationTime) {
                                 error = true
                             }
                             handled = true
@@ -303,7 +285,7 @@ extension KSAssetExportSession {
                     }
                 }
 
-                if handled == false && !input.append(sampleBuffer) {
+                if !handled && !input.append(sampleBuffer) {
                     error = true
                 }
 
@@ -398,8 +380,7 @@ extension AVAsset {
         try exporter.export(progressHandler: progressHandler, completionHandler: completionHandler)
     }
 
-    public func quickTimeMov(outputURL: URL,
-                             assetIdentifier: String,
+    public func quickTimeMov(outputURL: URL, assetIdentifier: String,
                              completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws {
         guard let videoTrack = tracks(withMediaType: .video).first else {
             return
@@ -521,8 +502,16 @@ extension AVMutableMetadataItem {
     }
 }
 
-extension Dictionary where Key == String {
-    fileprivate func validate() -> Bool {
+extension Dictionary where Key == String, Value == Any {
+    fileprivate mutating func validate() -> Bool {
+        if !keys.contains(AVVideoCodecKey) {
+            debugPrint("KSAssetExportSession, warning a video output configuration codec wasn't specified")
+            if #available(iOS 11.0, *) {
+                self[AVVideoCodecKey] = AVVideoCodecType.h264
+            } else {
+                self[AVVideoCodecKey] = AVVideoCodecH264
+            }
+        }
         let videoWidth = self[AVVideoWidthKey] as? NSNumber
         let videoHeight = self[AVVideoHeightKey] as? NSNumber
         if videoWidth == nil || videoHeight == nil {
@@ -541,5 +530,20 @@ extension URL {
                 debugPrint("KSAssetExportSession, failed to delete file at \(self)")
             }
         }
+    }
+}
+
+extension AVAssetWriterInputPixelBufferAdaptor {
+    public convenience init(assetWriterInput input: AVAssetWriterInput, output: AVAssetReaderOutput) {
+        var pixelBufferAttrib: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: NSNumber(integerLiteral: Int(kCVPixelFormatType_32RGBA)),
+            "IOSurfaceOpenGLESTextureCompatibility": NSNumber(booleanLiteral: true),
+            "IOSurfaceOpenGLESFBOCompatibility": NSNumber(booleanLiteral: true),
+        ]
+        if let videoOutput = output as? AVAssetReaderVideoCompositionOutput, let videoComposition = videoOutput.videoComposition {
+            pixelBufferAttrib[kCVPixelBufferWidthKey as String] = NSNumber(integerLiteral: Int(videoComposition.renderSize.width))
+            pixelBufferAttrib[kCVPixelBufferHeightKey as String] = NSNumber(integerLiteral: Int(videoComposition.renderSize.height))
+        }
+        self.init(assetWriterInput: input, sourcePixelBufferAttributes: pixelBufferAttrib)
     }
 }
