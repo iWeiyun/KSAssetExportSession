@@ -25,8 +25,9 @@ class CompressTest: XCTestCase {
             .appendingPathComponent(ProcessInfo().globallyUniqueString)
             .appendingPathExtension("mp4")
         let compressionDict: [String: Any] = [
-            AVVideoAverageBitRateKey: NSNumber(integerLiteral: 6_000_000),
-            AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel as String,
+            AVVideoAverageBitRateKey: NSNumber(integerLiteral: 2_000_000),
+            AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+            AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC,
         ]
         let videoOutputConfiguration = [
             AVVideoCodecKey: AVVideoCodecH264,
@@ -37,8 +38,8 @@ class CompressTest: XCTestCase {
         ] as [String: Any]
         let audioOutputConfiguration = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVEncoderBitRateKey: NSNumber(integerLiteral: 128_000),
-            AVNumberOfChannelsKey: NSNumber(integerLiteral: 2),
+            AVEncoderBitRateKey: NSNumber(integerLiteral: 64000),
+            AVNumberOfChannelsKey: NSNumber(integerLiteral: 1),
             AVSampleRateKey: NSNumber(value: Float(44100)),
         ] as [String: Any]
 
