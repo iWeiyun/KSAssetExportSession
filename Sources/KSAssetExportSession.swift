@@ -1,20 +1,5 @@
-
 import AVFoundation
 import Foundation
-
-// MARK: - types
-
-/// Session export errors.
-public enum KSAssetExportSessionError: Error, CustomStringConvertible {
-    case setupFailure
-    public var description: String {
-        switch self {
-        case .setupFailure:
-            return "Setup failure"
-        }
-    }
-}
-
 /// KSAssetExportSession, export and transcode media in Swift
 @objc open class KSAssetExportSession: NSObject {
     // private instance vars
@@ -110,7 +95,7 @@ public enum KSAssetExportSessionError: Error, CustomStringConvertible {
 
 extension KSAssetExportSession {
     /// Completion handler type for when an export finishes.
-    public typealias CompletionHandler = (_ status: AVAssetExportSession.Status) -> Void
+    public typealias CompletionHandler = (_ status: AVAssetExportSession.Status, _ erro: Error?) -> Void
 
     /// Progress handler type
     public typealias ProgressHandler = (_ progress: Float) -> Void
@@ -125,7 +110,7 @@ extension KSAssetExportSession {
     public func export(renderHandler: RenderHandler? = nil, progressHandler: ProgressHandler? = nil, completionHandler: CompletionHandler? = nil) throws {
         cancelExport()
         guard let outputURL = outputURL, let videoOutput = self.videoOutput, let asset = asset, videoOutputConfiguration?.validate() == true else {
-            throw KSAssetExportSessionError.setupFailure
+            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "setup failure"])
         }
         outputURL.remove()
         self.progressHandler = progressHandler
@@ -162,7 +147,7 @@ extension KSAssetExportSession {
                 }
             }
         } else {
-            throw KSAssetExportSessionError.setupFailure
+            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "setup failure"])
         }
 
         // audio
@@ -316,7 +301,7 @@ extension KSAssetExportSession {
         if status == .failed || status == .cancelled {
             outputURL?.remove()
         }
-        completionHandler?(status)
+        completionHandler?(status, error)
         completionHandler = nil
     }
 

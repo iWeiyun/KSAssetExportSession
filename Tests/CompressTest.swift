@@ -46,7 +46,7 @@ class CompressTest: XCTestCase {
         do {
             try asset.export(outputURL: tmpURL, videoOutputConfiguration: videoOutputConfiguration, audioOutputConfiguration: audioOutputConfiguration, progressHandler: { progress in
                 print(progress)
-            }) { status in
+            }) { status, error in
                 switch status {
                 case .completed:
                     self.expectation?.fulfill()
@@ -56,7 +56,7 @@ class CompressTest: XCTestCase {
                     print("SessionExporter, export cancelled")
                     break
                 case .failed:
-                    print("SessionExporter, failed to export")
+                    print("SessionExporter, failed to export, \(error.debugDescription)")
                     break
                 case .exporting:
                     fallthrough
