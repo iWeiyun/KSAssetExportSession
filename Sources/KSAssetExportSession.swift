@@ -170,7 +170,7 @@ extension KSAssetExportSession {
                     var pixelBufferAttrib: [String: Any] = [
                         kCVPixelBufferPixelFormatTypeKey as String: NSNumber(integerLiteral: Int(kCVPixelFormatType_32RGBA)),
                         "IOSurfaceOpenGLESTextureCompatibility": NSNumber(booleanLiteral: true),
-                        "IOSurfaceOpenGLESFBOCompatibility": NSNumber(booleanLiteral: true)
+                        "IOSurfaceOpenGLESFBOCompatibility": NSNumber(booleanLiteral: true),
                     ]
                     if let videoOutput = videoOutput as? AVAssetReaderVideoCompositionOutput, let videoComposition = videoOutput.videoComposition {
                         pixelBufferAttrib[kCVPixelBufferWidthKey as String] = NSNumber(integerLiteral: Int(videoComposition.renderSize.width))
@@ -228,16 +228,12 @@ extension KSAssetExportSession {
         let finish = {
             audioSemaphore.wait()
             videoSemaphore.wait()
-            DispatchQueue.main.sync { [weak self] in
-                self?.finish()
-            }
+            DispatchQueue.main.sync { [weak self] in self?.finish() }
         }
         if synchronous {
             finish()
         } else {
-            DispatchQueue.global().async {
-                finish()
-            }
+            DispatchQueue.global().async { finish() }
         }
     }
 
@@ -276,6 +272,7 @@ extension KSAssetExportSession {
         audioInput.expectsMediaDataInRealTime = expectsMediaDataInRealTime
         return (audioOutput, audioInput)
     }
+
     // called on the inputQueue
     private func encode(readySamplesFromReaderOutput output: AVAssetReaderOutput, toWriterInput input: AVAssetWriterInput) -> Bool {
         while input.isReadyForMoreMediaData {
@@ -492,10 +489,10 @@ extension AVAssetWriterInput {
     fileprivate static func makeMetadataAdapter() -> AVAssetWriterInput {
         let spec = [
             kCMMetadataFormatDescriptionMetadataSpecificationKey_Identifier:
-            "mdta/com.apple.quicktime.still-image-time",
+                "mdta/com.apple.quicktime.still-image-time",
             kCMMetadataFormatDescriptionMetadataSpecificationKey_DataType:
-            "com.apple.metadata.datatype.int8",
-            ]
+                "com.apple.metadata.datatype.int8",
+        ]
         var desc: CMFormatDescription?
         CMMetadataFormatDescriptionCreateWithMetadataSpecifications(allocator: kCFAllocatorDefault, metadataType: kCMMetadataFormatType_Boxed, metadataSpecifications: [spec] as CFArray, formatDescriptionOut: &desc)
         let input = AVAssetWriterInput(mediaType: .metadata, outputSettings: nil, sourceFormatHint: desc)
@@ -534,6 +531,7 @@ extension Dictionary where Key == String {
         return true
     }
 }
+
 extension URL {
     fileprivate func remove() {
         if FileManager.default.fileExists(atPath: absoluteString) {
