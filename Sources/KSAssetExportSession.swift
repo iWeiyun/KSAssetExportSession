@@ -259,40 +259,27 @@ extension KSAssetExportSession {
     private func encode(readySamplesFromReaderOutput output: AVAssetReaderOutput, toWriterInput input: AVAssetWriterInput) -> Bool {
         while input.isReadyForMoreMediaData {
             if let sampleBuffer = output.copyNextSampleBuffer() {
-                var handled = false
-                var error = false
-                if reader?.status != .reading || writer?.status != .writing {
-                    handled = true
-                    error = true
+                guard reader?.status == .reading && writer?.status == .writing else {
+                    return false
                 }
-
-                if !handled && output.mediaType == .video {
-                    // determine progress
+                if output.mediaType == .video {
                     let lastSamplePresentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer) - timeRange.start
                     let progress = duration == 0 ? 1 : Float(lastSamplePresentationTime.seconds / duration)
                     updateProgress(progress: progress)
-                    // prepare progress frames
                     if let renderHandler = renderHandler, let pixelBufferAdaptor = pixelBufferAdaptor, let pixelBufferPool = pixelBufferAdaptor.pixelBufferPool, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
                         var toRenderBuffer: CVPixelBuffer?
                         let result = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pixelBufferPool, &toRenderBuffer)
                         if result == kCVReturnSuccess, let toBuffer = toRenderBuffer {
                             renderHandler(pixelBuffer, lastSamplePresentationTime, toBuffer)
                             if !pixelBufferAdaptor.append(toBuffer, withPresentationTime: lastSamplePresentationTime) {
-                                error = true
+                                return false
                             }
-                            handled = true
                         }
                     }
                 }
-
-                if !handled && !input.append(sampleBuffer) {
-                    error = true
-                }
-
-                if error {
+                guard input.append(sampleBuffer) else {
                     return false
                 }
-
             } else {
                 input.markAsFinished()
                 return false
