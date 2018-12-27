@@ -47,7 +47,6 @@ import Foundation
     @objc public var audioOutputConfiguration: [String: Any]?
 
     /// Export session status state.
-    public private(set) var error: Error?
     public var status: AVAssetExportSession.Status {
         if let writer = self.writer {
             switch writer.status {
@@ -290,11 +289,10 @@ extension KSAssetExportSession {
     }
 
     private func complete() {
-        error = writer?.error ?? reader?.error
         if status == .failed || status == .cancelled {
             outputURL?.remove()
         }
-        completionHandler?(status, error)
+        completionHandler?(status, writer?.error ?? reader?.error)
         completionHandler = nil
     }
 
