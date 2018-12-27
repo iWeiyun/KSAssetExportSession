@@ -32,7 +32,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E8ACCE3B0536F215E5F907DB731C08C9"
+               BlueprintIdentifier = "377A6016CC3056125C971BF653C91822"
                BuildableName = "KSAssetExportSession-Unit-Tests.xctest"
                BlueprintName = "KSAssetExportSession-Unit-Tests"
                ReferencedContainer = "container:Pods/Pods.xcodeproj">

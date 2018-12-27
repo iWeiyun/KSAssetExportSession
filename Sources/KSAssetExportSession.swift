@@ -275,16 +275,14 @@ extension KSAssetExportSession {
 
     private func finish() {
         if reader?.status == .cancelled || writer?.status == .cancelled {
-            self.complete()
+            complete()
         } else if writer?.status == .failed {
             complete()
         } else if reader?.status == .failed {
             writer?.cancelWriting()
             complete()
         } else {
-            writer?.finishWriting {[weak self] in
-                self?.complete()
-            }
+            writer?.finishWriting { self.complete() }
         }
     }
 
