@@ -127,7 +127,7 @@ extension KSAssetExportSession {
             writer.metadata = metadata
         }
 
-        if timeRange.duration.isValid && !timeRange.duration.isPositiveInfinity {
+        if timeRange.duration.isValid, !timeRange.duration.isPositiveInfinity {
             duration = CMTimeGetSeconds(timeRange.duration)
         } else {
             duration = CMTimeGetSeconds(asset.duration)
@@ -137,17 +137,17 @@ extension KSAssetExportSession {
         if reader.canAdd(videoOutput) {
             reader.add(videoOutput)
         }
-        if writer.canApply(outputSettings: videoOutputConfiguration, forMediaType: .video) == true {
-            let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputConfiguration)
-            videoInput.expectsMediaDataInRealTime = expectsMediaDataInRealTime
-            if writer.canAdd(videoInput) {
-                writer.add(videoInput)
-                if renderHandler != nil {
-                    pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: videoInput, output: videoOutput)
-                }
-            }
-        } else {
+        guard writer.canApply(outputSettings: videoOutputConfiguration, forMediaType: .video) else {
             throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "setup failure"])
+        }
+
+        let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputConfiguration)
+        videoInput.expectsMediaDataInRealTime = expectsMediaDataInRealTime
+        if writer.canAdd(videoInput) {
+            writer.add(videoInput)
+            if renderHandler != nil {
+                pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: videoInput, output: videoOutput)
+            }
         }
 
         // audio
@@ -243,30 +243,29 @@ extension KSAssetExportSession {
     // called on the inputQueue
     private func encode(readySamplesFromReaderOutput output: AVAssetReaderOutput, toWriterInput input: AVAssetWriterInput) -> Bool {
         while input.isReadyForMoreMediaData {
-            if let sampleBuffer = output.copyNextSampleBuffer() {
-                guard reader?.status == .reading && writer?.status == .writing else {
-                    return false
-                }
-                if output.mediaType == .video {
-                    let lastSamplePresentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer) - timeRange.start
-                    let progress = duration == 0 ? 1 : Float(lastSamplePresentationTime.seconds / duration)
-                    updateProgress(progress: progress)
-                    if let renderHandler = renderHandler, let pixelBufferAdaptor = pixelBufferAdaptor, let pixelBufferPool = pixelBufferAdaptor.pixelBufferPool, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
-                        var toRenderBuffer: CVPixelBuffer?
-                        let result = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pixelBufferPool, &toRenderBuffer)
-                        if result == kCVReturnSuccess, let toBuffer = toRenderBuffer {
-                            renderHandler(pixelBuffer, lastSamplePresentationTime, toBuffer)
-                            if !pixelBufferAdaptor.append(toBuffer, withPresentationTime: lastSamplePresentationTime) {
-                                return false
-                            }
+            guard let sampleBuffer = output.copyNextSampleBuffer() else {
+                input.markAsFinished()
+                return false
+            }
+            guard reader?.status == .reading, writer?.status == .writing else {
+                return false
+            }
+            if output.mediaType == .video {
+                let lastSamplePresentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer) - timeRange.start
+                let progress = duration == 0 ? 1 : Float(lastSamplePresentationTime.seconds / duration)
+                updateProgress(progress: progress)
+                if let renderHandler = renderHandler, let pixelBufferAdaptor = pixelBufferAdaptor, let pixelBufferPool = pixelBufferAdaptor.pixelBufferPool, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+                    var toRenderBuffer: CVPixelBuffer?
+                    let result = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pixelBufferPool, &toRenderBuffer)
+                    if result == kCVReturnSuccess, let toBuffer = toRenderBuffer {
+                        renderHandler(pixelBuffer, lastSamplePresentationTime, toBuffer)
+                        if !pixelBufferAdaptor.append(toBuffer, withPresentationTime: lastSamplePresentationTime) {
+                            return false
                         }
                     }
                 }
-                guard input.append(sampleBuffer) else {
-                    return false
-                }
-            } else {
-                input.markAsFinished()
+            }
+            guard input.append(sampleBuffer) else {
                 return false
             }
         }
@@ -374,65 +373,60 @@ extension AVAsset {
 
     fileprivate func makeVideoComposition(videoOutputConfiguration: [String: Any]?) -> AVMutableVideoComposition {
         let videoComposition = AVMutableVideoComposition()
-        if let videoTrack = tracks(withMediaType: .video).first {
-            // determine the framerate
-            var frameRate: Float = 0
-            if let videoConfiguration = videoOutputConfiguration {
-                if let videoCompressionConfiguration = videoConfiguration[AVVideoCompressionPropertiesKey] as? [String: Any] {
-                    if let trackFrameRate = videoCompressionConfiguration[AVVideoAverageNonDroppableFrameRateKey] as? NSNumber {
-                        frameRate = trackFrameRate.floatValue
-                    }
-                }
-            } else {
-                frameRate = videoTrack.nominalFrameRate
+        guard let videoTrack = tracks(withMediaType: .video).first else {
+            return videoComposition
+        }
+        // determine the framerate
+        var frameRate: Float = 24
+        if let videoCompressionConfiguration = videoOutputConfiguration?[AVVideoCompressionPropertiesKey] as? [String: Any] {
+            if let trackFrameRate = videoCompressionConfiguration[AVVideoExpectedSourceFrameRateKey] as? NSNumber {
+                frameRate = trackFrameRate.floatValue
+            }
+        } else {
+            frameRate = videoTrack.nominalFrameRate
+        }
+        videoComposition.frameDuration = CMTimeMake(value: 1, timescale: Int32(frameRate))
+        // determine the appropriate size and transform
+        if let videoConfiguration = videoOutputConfiguration {
+            let videoWidth = videoConfiguration[AVVideoWidthKey] as? NSNumber
+            let videoHeight = videoConfiguration[AVVideoHeightKey] as? NSNumber
+            let targetSize = CGSize(width: videoWidth!.intValue, height: videoHeight!.intValue)
+            var naturalSize = videoTrack.naturalSize
+            var transform = videoTrack.preferredTransform
+            if transform.ty == -560 {
+                transform.ty = 0
             }
 
-            if frameRate == 0 {
-                frameRate = 30
+            if transform.tx == -560 {
+                transform.tx = 0
             }
-            videoComposition.frameDuration = CMTimeMake(value: 1, timescale: Int32(frameRate))
-            // determine the appropriate size and transform
-            if let videoConfiguration = videoOutputConfiguration {
-                let videoWidth = videoConfiguration[AVVideoWidthKey] as? NSNumber
-                let videoHeight = videoConfiguration[AVVideoHeightKey] as? NSNumber
-                let targetSize = CGSize(width: videoWidth!.intValue, height: videoHeight!.intValue)
-                var naturalSize = videoTrack.naturalSize
-                var transform = videoTrack.preferredTransform
-                if transform.ty == -560 {
-                    transform.ty = 0
-                }
-
-                if transform.tx == -560 {
-                    transform.tx = 0
-                }
-                let videoAngleInDegrees = atan2(transform.b, transform.a) * 180 / .pi
-                if videoAngleInDegrees == 90 || videoAngleInDegrees == -90 {
-                    naturalSize = CGSize(width: naturalSize.height, height: naturalSize.width)
-                }
-                videoComposition.renderSize = naturalSize
-
-                // center the video
-                var ratio: CGFloat = 0
-                let xRatio: CGFloat = targetSize.width / naturalSize.width
-                let yRatio: CGFloat = targetSize.height / naturalSize.height
-                ratio = min(xRatio, yRatio)
-                let postWidth = naturalSize.width * ratio
-                let postHeight = naturalSize.height * ratio
-                let transX = (targetSize.width - postWidth) * 0.5
-                let transY = (targetSize.height - postHeight) * 0.5
-
-                var matrix = CGAffineTransform(translationX: (transX / xRatio), y: (transY / yRatio))
-                matrix = matrix.scaledBy(x: (ratio / xRatio), y: (ratio / yRatio))
-                transform = transform.concatenating(matrix)
-                // make the composition
-                let compositionInstruction = AVMutableVideoCompositionInstruction()
-                compositionInstruction.timeRange = CMTimeRange(start: .zero, duration: duration)
-
-                let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
-                layerInstruction.setTransform(transform, at: .zero)
-                compositionInstruction.layerInstructions = [layerInstruction]
-                videoComposition.instructions = [compositionInstruction]
+            let videoAngleInDegrees = atan2(transform.b, transform.a) * 180 / .pi
+            if videoAngleInDegrees == 90 || videoAngleInDegrees == -90 {
+                naturalSize = CGSize(width: naturalSize.height, height: naturalSize.width)
             }
+            videoComposition.renderSize = naturalSize
+
+            // center the video
+            var ratio: CGFloat = 0
+            let xRatio: CGFloat = targetSize.width / naturalSize.width
+            let yRatio: CGFloat = targetSize.height / naturalSize.height
+            ratio = min(xRatio, yRatio)
+            let postWidth = naturalSize.width * ratio
+            let postHeight = naturalSize.height * ratio
+            let transX = (targetSize.width - postWidth) * 0.5
+            let transY = (targetSize.height - postHeight) * 0.5
+
+            var matrix = CGAffineTransform(translationX: (transX / xRatio), y: (transY / yRatio))
+            matrix = matrix.scaledBy(x: (ratio / xRatio), y: (ratio / yRatio))
+            transform = transform.concatenating(matrix)
+            // make the composition
+            let compositionInstruction = AVMutableVideoCompositionInstruction()
+            compositionInstruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+
+            let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
+            layerInstruction.setTransform(transform, at: .zero)
+            compositionInstruction.layerInstructions = [layerInstruction]
+            videoComposition.instructions = [compositionInstruction]
         }
         return videoComposition
     }

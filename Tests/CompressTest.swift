@@ -28,6 +28,7 @@ class CompressTest: XCTestCase {
             AVVideoAverageBitRateKey: NSNumber(integerLiteral: 2_000_000),
             AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
             AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC,
+            AVVideoExpectedSourceFrameRateKey: NSNumber(integerLiteral: 24),
         ]
         let videoOutputConfiguration = [
             AVVideoCodecKey: AVVideoCodecH264,
