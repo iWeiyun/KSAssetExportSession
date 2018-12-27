@@ -143,11 +143,12 @@ extension KSAssetExportSession {
 
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputConfiguration)
         videoInput.expectsMediaDataInRealTime = expectsMediaDataInRealTime
-        if writer.canAdd(videoInput) {
-            writer.add(videoInput)
-            if renderHandler != nil {
-                pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: videoInput, output: videoOutput)
-            }
+        guard writer.canAdd(videoInput) else {
+            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "Can't add video input"])
+        }
+        writer.add(videoInput)
+        if renderHandler != nil {
+            pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: videoInput, output: videoOutput)
         }
 
         // audio
@@ -170,18 +171,12 @@ extension KSAssetExportSession {
 
         let audioSemaphore = DispatchSemaphore(value: 0)
         let videoSemaphore = DispatchSemaphore(value: 0)
-
-        if let videoInput = writer.inputs.first(where: { $0.mediaType == .video }) {
-            videoInput.requestMediaDataWhenReady(on: inputQueue) { [weak self] in
-                guard let self = self, self.encode(readySamplesFromReaderOutput: videoOutput, toWriterInput: videoInput) else {
-                    videoSemaphore.signal()
-                    return
-                }
+        videoInput.requestMediaDataWhenReady(on: inputQueue) { [weak self] in
+            guard let self = self, self.encode(readySamplesFromReaderOutput: videoOutput, toWriterInput: videoInput) else {
+                videoSemaphore.signal()
+                return
             }
-        } else {
-            videoSemaphore.signal()
         }
-
         if let audioOutput = self.audioOutput, let audioInput = writer.inputs.first(where: { $0.mediaType == .audio }) {
             audioInput.requestMediaDataWhenReady(on: inputQueue) { [weak self] in
                 guard let self = self, self.encode(readySamplesFromReaderOutput: audioOutput, toWriterInput: audioInput) else {
@@ -281,22 +276,21 @@ extension KSAssetExportSession {
 
     private func finish() {
         if reader?.status == .cancelled || writer?.status == .cancelled {
-            return
-        }
-        error = writer?.error ?? reader?.error
-        if writer?.status == .failed {
+            self.complete()
+        } else if writer?.status == .failed {
             complete()
         } else if reader?.status == .failed {
             writer?.cancelWriting()
             complete()
         } else {
-            writer?.finishWriting {
-                self.complete()
+            writer?.finishWriting {[weak self] in
+                self?.complete()
             }
         }
     }
 
     private func complete() {
+        error = writer?.error ?? reader?.error
         if status == .failed || status == .cancelled {
             outputURL?.remove()
         }
