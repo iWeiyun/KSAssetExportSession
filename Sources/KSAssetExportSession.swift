@@ -111,6 +111,10 @@ extension KSAssetExportSession {
         guard let outputURL = outputURL, let videoOutput = self.videoOutput, let asset = asset, videoOutputConfiguration?.validate() == true else {
             throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "setup failure"])
         }
+        let videoTrack = asset.tracks(withMediaType: .video).first{ $0.isPlayable == true }
+        guard videoTrack != nil else {
+            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "video can't player"])
+        }
         outputURL.remove()
         self.progressHandler = progressHandler
         self.renderHandler = renderHandler
