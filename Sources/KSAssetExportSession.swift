@@ -111,9 +111,9 @@ extension KSAssetExportSession {
         guard let outputURL = outputURL, let videoOutput = self.videoOutput, let asset = asset, videoOutputConfiguration?.validate() == true else {
             throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "setup failure"])
         }
-        let videoTrack = asset.tracks(withMediaType: .video).first{ $0.isPlayable == true }
+        let videoTrack = asset.tracks(withMediaType: .video).first { $0.isPlayable == true }
         guard videoTrack != nil else {
-            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "video can't player"])
+            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "video can't play"])
         }
         outputURL.remove()
         self.progressHandler = progressHandler
@@ -193,7 +193,7 @@ extension KSAssetExportSession {
         let finish = {
             audioSemaphore.wait()
             videoSemaphore.wait()
-            DispatchQueue.main.sync { [weak self] in self?.finish() }
+            self.finish()
         }
         if synchronous {
             finish()
@@ -248,6 +248,9 @@ extension KSAssetExportSession {
             guard reader?.status == .reading, writer?.status == .writing else {
                 return false
             }
+            guard input.append(sampleBuffer) else {
+                return false
+            }
             if output.mediaType == .video {
                 let lastSamplePresentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer) - timeRange.start
                 let progress = duration == 0 ? 1 : Float(lastSamplePresentationTime.seconds / duration)
@@ -262,9 +265,6 @@ extension KSAssetExportSession {
                         }
                     }
                 }
-            }
-            guard input.append(sampleBuffer) else {
-                return false
             }
         }
         return true
@@ -286,6 +286,7 @@ extension KSAssetExportSession {
             writer?.cancelWriting()
             complete()
         } else {
+            // 故意要循环引用，使得complete可以执行
             writer?.finishWriting { self.complete() }
         }
     }
@@ -332,7 +333,7 @@ extension AVAsset {
                        videoOutputConfiguration: [String: Any],
                        audioOutputConfiguration: [String: Any],
                        progressHandler: KSAssetExportSession.ProgressHandler? = nil,
-                       completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws {
+                       completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws -> KSAssetExportSession {
         let exporter = KSAssetExportSession(withAsset: self)
         exporter.outputFileType = outputFileType
         exporter.outputURL = outputURL
@@ -343,12 +344,13 @@ extension AVAsset {
         videoOutput.videoComposition = makeVideoComposition(videoOutputConfiguration: videoOutputConfiguration)
         exporter.videoOutput = videoOutput
         try exporter.export(progressHandler: progressHandler, completionHandler: completionHandler)
+        return exporter
     }
 
     public func quickTimeMov(outputURL: URL, assetIdentifier: String,
-                             completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws {
+                             completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws -> KSAssetExportSession {
         guard let videoTrack = tracks(withMediaType: .video).first else {
-            return
+            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "haven't video track"])
         }
         let exporter = KSAssetExportSession(withAsset: self)
         exporter.outputFileType = .mov
@@ -363,6 +365,7 @@ extension AVAsset {
         exporter.writerInput = [AVAssetWriterInput.makeMetadataAdapter()]
         exporter.synchronous = true
         try exporter.export(progressHandler: nil, completionHandler: completionHandler)
+        return exporter
     }
 
     fileprivate func makeVideoComposition(videoOutputConfiguration: [String: Any]?) -> AVMutableVideoComposition {
