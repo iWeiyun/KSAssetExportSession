@@ -168,8 +168,12 @@ extension KSAssetExportSession {
         }
         writerInput?.filter { writer.canAdd($0) }.forEach { writer.add($0) }
         // export
-        writer.startWriting()
-        reader.startReading()
+        guard writer.startWriting() else {
+            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "can't startWriting"])
+        }
+        guard reader.startReading() else {
+            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "can't startReading"])
+        }
         writer.startSession(atSourceTime: timeRange.start)
 
         let audioSemaphore = DispatchSemaphore(value: 0)
