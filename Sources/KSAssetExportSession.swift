@@ -249,10 +249,7 @@ extension KSAssetExportSession {
                 input.markAsFinished()
                 return false
             }
-            guard reader?.status == .reading, writer?.status == .writing else {
-                return false
-            }
-            guard input.append(sampleBuffer) else {
+            guard reader?.status == .reading, writer?.status == .writing, input.append(sampleBuffer) else {
                 return false
             }
             if output.mediaType == .video {
