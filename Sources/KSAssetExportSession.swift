@@ -249,7 +249,7 @@ extension KSAssetExportSession {
                 input.markAsFinished()
                 return false
             }
-            guard reader?.status == .reading, writer?.status == .writing, input.append(sampleBuffer) else {
+            guard reader?.status == .reading, writer?.status == .writing else {
                 return false
             }
             if output.mediaType == .video {
@@ -261,11 +261,16 @@ extension KSAssetExportSession {
                     let result = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pixelBufferPool, &toRenderBuffer)
                     if result == kCVReturnSuccess, let toBuffer = toRenderBuffer {
                         renderHandler(pixelBuffer, lastSamplePresentationTime, toBuffer)
-                        if !pixelBufferAdaptor.append(toBuffer, withPresentationTime: lastSamplePresentationTime) {
+                        if pixelBufferAdaptor.append(toBuffer, withPresentationTime: lastSamplePresentationTime) {
+                            continue
+                        } else {
                             return false
                         }
                     }
                 }
+            }
+            guard input.append(sampleBuffer) else {
+                return false
             }
         }
         return true
