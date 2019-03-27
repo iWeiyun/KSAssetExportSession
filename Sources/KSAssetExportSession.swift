@@ -326,23 +326,19 @@ extension AVAsset {
     /// Initiates a NextLevelSessionExport on the asset
     ///
     /// - Parameters:
-    ///   - outputFileType: type of resulting file to create
     ///   - outputURL: location of resulting file
-    ///   - metadata: data to embed in the result
     ///   - videoInputConfiguration: video input configuration
     ///   - videoOutputConfiguration: video output configuration
     ///   - audioOutputConfiguration: audio output configuration
     ///   - progressHandler: progress fraction handler
     ///   - completionHandler: completion handler
-    @objc public func export(outputFileType: AVFileType = AVFileType.mp4,
-                             outputURL: URL,
+    @objc public func export(outputURL: URL,
                              videoOutputConfiguration: [String: Any],
                              audioOutputConfiguration: [String: Any],
                              audioTimePitchAlgorithm: AVAudioTimePitchAlgorithm? = nil,
                              progressHandler: KSAssetExportSession.ProgressHandler? = nil,
                              completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws -> KSAssetExportSession {
         let exporter = KSAssetExportSession(withAsset: self)
-        exporter.outputFileType = outputFileType
         exporter.outputURL = outputURL
         exporter.optimizeForNetworkUse = true
         exporter.videoOutputConfiguration = videoOutputConfiguration
@@ -506,7 +502,7 @@ extension URL {
 }
 
 extension AVAssetWriterInputPixelBufferAdaptor {
-    public convenience init(assetWriterInput input: AVAssetWriterInput, output: AVAssetReaderOutput) {
+    fileprivate convenience init(assetWriterInput input: AVAssetWriterInput, output: AVAssetReaderOutput) {
         var pixelBufferAttrib: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: NSNumber(integerLiteral: Int(kCVPixelFormatType_32RGBA)),
             "IOSurfaceOpenGLESTextureCompatibility": NSNumber(booleanLiteral: true),
