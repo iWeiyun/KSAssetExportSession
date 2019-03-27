@@ -53,20 +53,16 @@ class CompressTest: XCTestCase {
                 case .completed:
                     self.expectation?.fulfill()
                     print("SessionExporter, export completed, \(tmpURL.description)")
-                    break
                 case .cancelled:
                     print("SessionExporter, export cancelled")
-                    break
                 case .failed:
                     print("SessionExporter, failed to export, \(error.debugDescription)")
-                    break
                 case .exporting:
                     fallthrough
                 case .waiting:
                     fallthrough
                 default:
                     print("SessionExporter, did not complete")
-                    break
                 }
             }
             print(export)
@@ -74,7 +70,6 @@ class CompressTest: XCTestCase {
             print("SessionExporter, failed to export")
         }
         waitForExpectations(timeout: 20) { _ in
-
         }
     }
 

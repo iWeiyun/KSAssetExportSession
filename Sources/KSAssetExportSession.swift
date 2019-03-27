@@ -1,8 +1,9 @@
 import AVFoundation
 import Foundation
 /// KSAssetExportSession, export and transcode media in Swift
-@objc open class KSAssetExportSession: NSObject {
+open class KSAssetExportSession: NSObject {
     // private instance vars
+    private let asset: AVAsset
     private let inputQueue: DispatchQueue
     private var writer: AVAssetWriter?
     private var reader: AVAssetReader?
@@ -14,7 +15,6 @@ import Foundation
     private var duration: TimeInterval = 0
     public private(set) var progress: Float = 0
     /// Input asset for export, provided when initialized.
-    public var asset: AVAsset?
     public var synchronous = false
     public var writerInput: [AVAssetWriterInput]?
     public var videoOutput: AVAssetReaderOutput?
@@ -22,29 +22,29 @@ import Foundation
     public var audioMix: AVAudioMix?
 
     /// Output file location for the session.
-    @objc public var outputURL: URL?
+    public var outputURL: URL?
 
     /// Output file type. UTI string defined in `AVMediaFormat.h`.
-    @objc public var outputFileType = AVFileType.mp4
+    public var outputFileType = AVFileType.mp4
 
     /// Time range or limit of an export from `kCMTimeZero` to `kCMTimePositiveInfinity`
-    @objc public var timeRange: CMTimeRange
+    public var timeRange: CMTimeRange
 
     /// Indicates if an export session should expect media data in real time.
-    @objc public var expectsMediaDataInRealTime = false
+    public var expectsMediaDataInRealTime = false
 
     /// Indicates if an export should be optimized for network use.
-    @objc public var optimizeForNetworkUse: Bool = false
+    public var optimizeForNetworkUse: Bool = false
 
-    @objc public var audioTimePitchAlgorithm: AVAudioTimePitchAlgorithm?
+    public var audioTimePitchAlgorithm: AVAudioTimePitchAlgorithm?
     /// Metadata to be added to an export.
-    @objc public var metadata: [AVMetadataItem]?
+    public var metadata: [AVMetadataItem]?
 
     /// Video output configuration dictionary, using keys defined in `<AVFoundation/AVVideoSettings.h>`
-    @objc public var videoOutputConfiguration: [String: Any]?
+    public var videoOutputConfiguration: [String: Any]?
 
     /// Audio output configuration dictionary, using keys defined in `<AVFoundation/AVAudioSettings.h>`
-    @objc public var audioOutputConfiguration: [String: Any]?
+    public var audioOutputConfiguration: [String: Any]?
 
     /// Export session status state.
     public var status: AVAssetExportSession.Status {
@@ -67,17 +67,17 @@ import Foundation
         return .unknown
     }
 
+    @objc public var readerStatus: AVAssetReader.Status {
+        return reader?.status ?? .unknown
+    }
+
     // MARK: - object lifecycle
 
     /// Initializes a session with an asset to export.
     ///
     /// - Parameter asset: The asset to export.
-    public convenience init(withAsset asset: AVAsset) {
-        self.init()
+    public init(withAsset asset: AVAsset) {
         self.asset = asset
-    }
-
-    override init() {
         timeRange = CMTimeRange(start: .zero, end: .positiveInfinity)
         inputQueue = DispatchQueue(label: "KSSessionExporterInputQueue", target: DispatchQueue.global())
         super.init()
@@ -110,7 +110,7 @@ extension KSAssetExportSession {
     /// - Throws: Failure indication thrown when an error has occurred during export.
     public func export(renderHandler: RenderHandler? = nil, progressHandler: ProgressHandler? = nil, completionHandler: CompletionHandler? = nil) throws {
         cancelExport()
-        guard let outputURL = outputURL, let videoOutput = self.videoOutput, let asset = asset, videoOutputConfiguration?.validate() == true else {
+        guard let outputURL = outputURL, let videoOutput = self.videoOutput, videoOutputConfiguration?.validate() == true else {
             throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "setup failure"])
         }
         let videoTrack = asset.tracks(withMediaType: .video).first { $0.isPlayable == true }
@@ -334,20 +334,21 @@ extension AVAsset {
     ///   - audioOutputConfiguration: audio output configuration
     ///   - progressHandler: progress fraction handler
     ///   - completionHandler: completion handler
-    public func export(outputFileType: AVFileType = AVFileType.mp4,
-                       outputURL: URL,
-                       metadata _: [AVMetadataItem]? = nil,
-                       videoInputConfiguration: [String: Any]? = nil,
-                       videoOutputConfiguration: [String: Any],
-                       audioOutputConfiguration: [String: Any],
-                       progressHandler: KSAssetExportSession.ProgressHandler? = nil,
-                       completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws -> KSAssetExportSession {
+    @objc public func export(outputFileType: AVFileType = AVFileType.mp4,
+                             outputURL: URL,
+                             videoOutputConfiguration: [String: Any],
+                             audioOutputConfiguration: [String: Any],
+                             audioTimePitchAlgorithm: AVAudioTimePitchAlgorithm? = nil,
+                             progressHandler: KSAssetExportSession.ProgressHandler? = nil,
+                             completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws -> KSAssetExportSession {
         let exporter = KSAssetExportSession(withAsset: self)
         exporter.outputFileType = outputFileType
         exporter.outputURL = outputURL
+        exporter.optimizeForNetworkUse = true
         exporter.videoOutputConfiguration = videoOutputConfiguration
         exporter.audioOutputConfiguration = audioOutputConfiguration
-        let videoOutput = AVAssetReaderVideoCompositionOutput(videoTracks: tracks(withMediaType: .video), videoSettings: videoInputConfiguration)
+        exporter.audioTimePitchAlgorithm = audioTimePitchAlgorithm
+        let videoOutput = AVAssetReaderVideoCompositionOutput(videoTracks: tracks(withMediaType: .video), videoSettings: nil)
         videoOutput.alwaysCopiesSampleData = false
         videoOutput.videoComposition = makeVideoComposition(videoOutputConfiguration: videoOutputConfiguration)
         exporter.videoOutput = videoOutput
@@ -421,8 +422,8 @@ extension AVAsset {
             let transX = (targetSize.width - postWidth) * 0.5
             let transY = (targetSize.height - postHeight) * 0.5
 
-            var matrix = CGAffineTransform(translationX: (transX / xRatio), y: (transY / yRatio))
-            matrix = matrix.scaledBy(x: (ratio / xRatio), y: (ratio / yRatio))
+            var matrix = CGAffineTransform(translationX: transX / xRatio, y: transY / yRatio)
+            matrix = matrix.scaledBy(x: ratio / xRatio, y: ratio / yRatio)
             transform = transform.concatenating(matrix)
             // make the composition
             let compositionInstruction = AVMutableVideoCompositionInstruction()
