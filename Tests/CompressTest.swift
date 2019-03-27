@@ -46,7 +46,7 @@ class CompressTest: XCTestCase {
 
         expectation = expectation(description: "compress")
         do {
-            let export = try asset.export(outputURL: tmpURL, videoOutputConfiguration: videoOutputConfiguration, audioOutputConfiguration: audioOutputConfiguration, progressHandler: { progress in
+            _ = try asset.export(outputURL: tmpURL, videoOutputConfiguration: videoOutputConfiguration, audioOutputConfiguration: audioOutputConfiguration, progressHandler: { progress in
                 print(progress)
             }) { status, error in
                 switch status {
@@ -65,7 +65,6 @@ class CompressTest: XCTestCase {
                     print("SessionExporter, did not complete")
                 }
             }
-            print(export)
         } catch {
             print("SessionExporter, failed to export")
         }

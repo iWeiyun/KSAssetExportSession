@@ -48,23 +48,23 @@ open class KSAssetExportSession: NSObject {
 
     /// Export session status state.
     public var status: AVAssetExportSession.Status {
-        if let writer = self.writer {
-            switch writer.status {
-            case .writing:
-                return .exporting
-            case .failed:
-                return .failed
-            case .completed:
-                return .completed
-            case .cancelled:
-                return .cancelled
-            case .unknown:
-                break
-            @unknown default:
-                break
-            }
+        guard let writer = self.writer else {
+            return .unknown
         }
-        return .unknown
+        switch writer.status {
+        case .writing:
+            return .exporting
+        case .failed:
+            return .failed
+        case .completed:
+            return .completed
+        case .cancelled:
+            return .cancelled
+        case .unknown:
+            return .unknown
+        @unknown default:
+            return .unknown
+        }
     }
 
     @objc public var readerStatus: AVAssetReader.Status {
@@ -196,15 +196,16 @@ extension KSAssetExportSession {
         } else {
             audioSemaphore.signal()
         }
-        let finish = {
+        if synchronous {
             audioSemaphore.wait()
             videoSemaphore.wait()
-            self.finish()
-        }
-        if synchronous {
             finish()
         } else {
-            DispatchQueue.global().async { finish() }
+            DispatchQueue.global().async { [weak self] in
+                audioSemaphore.wait()
+                videoSemaphore.wait()
+                self?.finish()
+            }
         }
     }
 
@@ -214,9 +215,7 @@ extension KSAssetExportSession {
             return
         }
         inputQueue.async { [weak self] in
-            guard let self = self else {
-                return
-            }
+            guard let self = self else { return }
             if self.writer?.status == .writing {
                 self.writer?.cancelWriting()
             }
@@ -294,8 +293,7 @@ extension KSAssetExportSession {
             writer?.cancelWriting()
             complete()
         } else {
-            // 故意要循环引用，使得complete可以执行
-            writer?.finishWriting { self.complete() }
+            writer?.finishWriting { [weak self] in self?.complete() }
         }
     }
 
