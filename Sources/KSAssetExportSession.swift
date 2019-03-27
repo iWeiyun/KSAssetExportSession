@@ -60,6 +60,8 @@ import Foundation
                 return .cancelled
             case .unknown:
                 break
+            @unknown default:
+                break
             }
         }
         return .unknown
