@@ -163,7 +163,7 @@
 			files = (
 			);
 			inputPaths = (
-				"${SRCROOT}/Pods/Target Support Files/Pods-Demo/Pods-Demo-frameworks.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-Demo/Pods-Demo-frameworks.sh",
 				"${BUILT_PRODUCTS_DIR}/KSAssetExportSession/KSAssetExportSession.framework",
 			);
 			name = "[CP] Embed Pods Frameworks";
@@ -172,7 +172,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Pods/Target Support Files/Pods-Demo/Pods-Demo-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Demo/Pods-Demo-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		C43571221C59F4D43A6A1EFA /* [CP] Check Pods Manifest.lock */ = {
