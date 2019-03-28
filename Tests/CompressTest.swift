@@ -36,37 +36,33 @@ class CompressTest: XCTestCase {
             AVVideoHeightKey: NSNumber(integerLiteral: 960),
             AVVideoScalingModeKey: AVVideoScalingModeResizeAspectFill,
             AVVideoCompressionPropertiesKey: compressionDict,
-        ] as [String: Any]
+            ] as [String: Any]
         let audioOutputConfiguration = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVEncoderBitRateKey: NSNumber(integerLiteral: 64000),
             AVNumberOfChannelsKey: NSNumber(integerLiteral: 1),
             AVSampleRateKey: NSNumber(value: Float(44100)),
-        ] as [String: Any]
+            ] as [String: Any]
 
         expectation = expectation(description: "compress")
-        do {
-            _ = try asset.export(outputURL: tmpURL, videoOutputConfiguration: videoOutputConfiguration, audioOutputConfiguration: audioOutputConfiguration, progressHandler: { progress in
-                print(progress)
-            }) { status, error in
-                switch status {
-                case .completed:
-                    self.expectation?.fulfill()
-                    print("SessionExporter, export completed, \(tmpURL.description)")
-                case .cancelled:
-                    print("SessionExporter, export cancelled")
-                case .failed:
-                    print("SessionExporter, failed to export, \(error.debugDescription)")
-                case .exporting:
-                    fallthrough
-                case .waiting:
-                    fallthrough
-                default:
-                    print("SessionExporter, did not complete")
-                }
+        _ = asset.export(outputURL: tmpURL, videoOutputConfiguration: videoOutputConfiguration, audioOutputConfiguration: audioOutputConfiguration, progressHandler: { progress in
+            print(progress)
+        }) { status, error in
+            switch status {
+            case .completed:
+                self.expectation?.fulfill()
+                print("SessionExporter, export completed, \(tmpURL.description)")
+            case .cancelled:
+                print("SessionExporter, export cancelled")
+            case .failed:
+                print("SessionExporter, failed to export, \(error.debugDescription)")
+            case .exporting:
+                fallthrough
+            case .waiting:
+                fallthrough
+            default:
+                print("SessionExporter, did not complete")
             }
-        } catch {
-            print("SessionExporter, failed to export")
         }
         waitForExpectations(timeout: 20) { _ in
         }

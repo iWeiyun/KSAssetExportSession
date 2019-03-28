@@ -335,7 +335,7 @@ extension AVAsset {
                              audioOutputConfiguration: [String: Any],
                              audioTimePitchAlgorithm: AVAudioTimePitchAlgorithm? = nil,
                              progressHandler: KSAssetExportSession.ProgressHandler? = nil,
-                             completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws -> KSAssetExportSession {
+                             completionHandler: @escaping KSAssetExportSession.CompletionHandler) -> KSAssetExportSession {
         let exporter = KSAssetExportSession(withAsset: self)
         exporter.outputURL = outputURL
         exporter.optimizeForNetworkUse = true
@@ -346,16 +346,21 @@ extension AVAsset {
         videoOutput.alwaysCopiesSampleData = false
         videoOutput.videoComposition = makeVideoComposition(videoOutputConfiguration: videoOutputConfiguration)
         exporter.videoOutput = videoOutput
-        try exporter.export(progressHandler: progressHandler, completionHandler: completionHandler)
+        do {
+            try exporter.export(progressHandler: progressHandler, completionHandler: completionHandler)
+        } catch let error as NSError? {
+            completionHandler(exporter.status, error)
+        }
         return exporter
     }
 
     public func quickTimeMov(outputURL: URL, assetIdentifier: String,
-                             completionHandler: KSAssetExportSession.CompletionHandler? = nil) throws -> KSAssetExportSession {
-        guard let videoTrack = tracks(withMediaType: .video).first else {
-            throw NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "haven't video track"])
-        }
+                             completionHandler: KSAssetExportSession.CompletionHandler? = nil) -> KSAssetExportSession {
         let exporter = KSAssetExportSession(withAsset: self)
+        guard let videoTrack = tracks(withMediaType: .video).first else {
+            completionHandler?(.failed, NSError(domain: AVFoundationErrorDomain, code: AVError.exportFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "haven't video track"]))
+            return exporter
+        }
         exporter.outputFileType = .mov
         exporter.outputURL = outputURL
         exporter.videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: NSNumber(value: kCVPixelFormatType_32BGRA)])
@@ -367,7 +372,11 @@ extension AVAsset {
         exporter.metadata = [AVMutableMetadataItem(assetIdentifier: assetIdentifier)]
         exporter.writerInput = [AVAssetWriterInput.makeMetadataAdapter()]
         exporter.synchronous = true
-        try exporter.export(progressHandler: nil, completionHandler: completionHandler)
+        do {
+            try exporter.export(progressHandler: nil, completionHandler: completionHandler)
+        } catch let error as NSError? {
+            completionHandler?(exporter.status, error)
+        }
         return exporter
     }
 
