@@ -346,6 +346,7 @@ extension AVAsset {
         videoOutput.alwaysCopiesSampleData = false
         videoOutput.videoComposition = makeVideoComposition(videoOutputConfiguration: videoOutputConfiguration)
         exporter.videoOutput = videoOutput
+        try? FileManager.default.removeItem(at: outputURL)
         do {
             try exporter.export(progressHandler: progressHandler, completionHandler: completionHandler)
         } catch let error as NSError? {
@@ -372,6 +373,7 @@ extension AVAsset {
         exporter.metadata = [AVMutableMetadataItem(assetIdentifier: assetIdentifier)]
         exporter.writerInput = [AVAssetWriterInput.makeMetadataAdapter()]
         exporter.synchronous = true
+        try? FileManager.default.removeItem(at: outputURL)
         do {
             try exporter.export(progressHandler: nil, completionHandler: completionHandler)
         } catch let error as NSError? {
@@ -445,9 +447,9 @@ extension AVAssetWriterInput {
     fileprivate static func makeMetadataAdapter() -> AVAssetWriterInput {
         let spec = [
             kCMMetadataFormatDescriptionMetadataSpecificationKey_Identifier:
-                "mdta/com.apple.quicktime.still-image-time",
+            "mdta/com.apple.quicktime.still-image-time",
             kCMMetadataFormatDescriptionMetadataSpecificationKey_DataType:
-                "com.apple.metadata.datatype.int8",
+            "com.apple.metadata.datatype.int8",
         ]
         var desc: CMFormatDescription?
         CMMetadataFormatDescriptionCreateWithMetadataSpecifications(allocator: kCFAllocatorDefault, metadataType: kCMMetadataFormatType_Boxed, metadataSpecifications: [spec] as CFArray, formatDescriptionOut: &desc)
