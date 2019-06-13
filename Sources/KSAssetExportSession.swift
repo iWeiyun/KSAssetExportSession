@@ -211,19 +211,15 @@ extension KSAssetExportSession {
 
     /// Cancels any export in progress.
     @objc public func cancelExport() {
-        guard writer != nil || reader != nil else {
-            return
+        if let writer = writer {
+            inputQueue.async {
+                writer.cancelWriting()
+            }
         }
-        inputQueue.async { [weak self] in
-            guard let self = self else { return }
-            if self.writer?.status == .writing {
-                self.writer?.cancelWriting()
+        if let reader = reader {
+            inputQueue.async {
+                reader.cancelReading()
             }
-            if self.reader?.status == .reading {
-                self.reader?.cancelReading()
-            }
-            self.complete()
-            self.reset()
         }
     }
 }
