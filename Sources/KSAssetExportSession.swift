@@ -342,7 +342,6 @@ extension AVAsset {
         videoOutput.alwaysCopiesSampleData = false
         videoOutput.videoComposition = makeVideoComposition(videoOutputConfiguration: videoOutputConfiguration)
         exporter.videoOutput = videoOutput
-        try? FileManager.default.removeItem(at: outputURL)
         do {
             try exporter.export(progressHandler: progressHandler, completionHandler: completionHandler)
         } catch let error as NSError? {
@@ -369,7 +368,6 @@ extension AVAsset {
         exporter.metadata = [AVMutableMetadataItem(assetIdentifier: assetIdentifier)]
         exporter.writerInput = [AVAssetWriterInput.makeMetadataAdapter()]
         exporter.synchronous = true
-        try? FileManager.default.removeItem(at: outputURL)
         do {
             try exporter.export(progressHandler: nil, completionHandler: completionHandler)
         } catch let error as NSError? {
@@ -496,7 +494,7 @@ extension Dictionary where Key == String, Value == Any {
 
 extension URL {
     fileprivate func remove() {
-        if FileManager.default.fileExists(atPath: absoluteString) {
+        if FileManager.default.fileExists(atPath: path) {
             do {
                 try FileManager.default.removeItem(at: self)
             } catch {
